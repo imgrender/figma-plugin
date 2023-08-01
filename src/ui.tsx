@@ -35,7 +35,7 @@ function Plugin() {
   const handleOutputButtonClick = useCallback(function () {
     on<SaveToClipboardHandler>("SAVE_TO_CLIPBOARD", function (content: string) {
       copyToClipboard(content);
-      alert("导出成功");
+      // alert("导出成功");
     });
 
     // delay to allow the loading state to be set

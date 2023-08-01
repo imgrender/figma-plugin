@@ -1,4 +1,5 @@
 import { emit, on, once, showUI } from "@create-figma-plugin/utilities";
+import { convert } from "./convert";
 
 import {
   CloseHandler,
@@ -42,8 +43,12 @@ export default function () {
         3000
       );
     } else if (selection.length === 1) {
-      emit<SaveToClipboardHandler>("SAVE_TO_CLIPBOARD", "测试粘贴板流程");
-      // TODO:
+      const data = convert(selection[0]);
+      emit<SaveToClipboardHandler>("SAVE_TO_CLIPBOARD", data);
+      figma.notify("已复制到剪贴板中", {
+        timeout: NOTI_TIME_LONG,
+        error: false,
+      });
     } else {
       showError(
         "Nothing selected. Please select a layer to output.",
