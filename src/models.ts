@@ -27,7 +27,7 @@ export interface TextComponent {
   lineSpacing: number;
   color: string;
   textAlign: string;
-  zIndex?: number;
+  zIndex: number;
 }
 
 export interface ImageComponent extends BorderAttributes {
@@ -36,7 +36,7 @@ export interface ImageComponent extends BorderAttributes {
   url: string;
   width: number;
   height: number;
-  zIndex?: number;
+  zIndex: number;
 }
 
 export interface LineComponent {
@@ -46,7 +46,7 @@ export interface LineComponent {
   endY: number;
   width: number;
   color?: string;
-  zIndex?: number;
+  zIndex: number;
 }
 
 export interface QrcodeComponent {
@@ -65,7 +65,7 @@ export interface BlockComponent extends BorderAttributes {
   width: number;
   height: number;
   backgroundColor?: string;
-  zIndex?: number;
+  zIndex: number;
 }
 
 export interface Blueprint extends BorderAttributes {

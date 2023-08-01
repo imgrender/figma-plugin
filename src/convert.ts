@@ -6,9 +6,13 @@ import {
   BlockComponent,
 } from "./models";
 
+type Coord = {
+  x: number;
+  y: number;
+};
+
 export function convert(node: Readonly<SceneNode>): string {
-  const blueprintOriginX = node.x;
-  const blueprintOriginY = node.y;
+  const originCoord: Coord = { x: node.x, y: node.y };
 
   const blueprint: Blueprint = {
     height: node.height,
@@ -16,20 +20,76 @@ export function convert(node: Readonly<SceneNode>): string {
     backgroundColor: "#ffffff",
   };
 
-  // 递归遍历所有子节点
-  if (node.type === "GROUP") {
-    // 嵌套类节点
-  } else if (node.type === "TEXT") {
-    // 原始节点
-  } else if (node.type === "RECTANGLE") {
-  } else if (node.type === "LINE") {
+  // DFS
+  let stack: Array<Readonly<SceneNode>> = [];
+  let zIndex = 0;
+  stack.push(node);
+  while (stack.length) {
+    let item = stack.pop();
+
+    // 解析节点
+    if (item?.type === "TEXT") {
+      let text = parseTextNode(item, originCoord, zIndex);
+      if (text !== null) {
+        if (blueprint.texts === undefined) {
+          blueprint.texts = [];
+        }
+        blueprint.texts?.push(text);
+      }
+    } else if (item?.type === "RECTANGLE") {
+      let block = parseRectangleNode(item, originCoord, zIndex);
+      console.log(block);
+      if (block !== null) {
+        if (blueprint.blocks === undefined) {
+          blueprint.blocks = [];
+        }
+        blueprint.blocks.push(block);
+      }
+    } else if (item?.type === "LINE") {
+      let line = parseLineNode(item, originCoord, zIndex);
+      if (line !== null) {
+        if (blueprint.lines === undefined) {
+          blueprint.lines = [];
+        }
+        blueprint.lines?.push(line);
+      }
+    } else if (item?.type === "GROUP") {
+      // GroupNode 具有 children 属性
+      for (let i = 0; i < item.children.length; i++) {
+        stack.push(item.children[i]);
+      }
+    }
+
+    zIndex--;
   }
 
-  console.log(node.x, node.y);
+  // 处理zIndex，全部转为正数
+  blueprint.texts?.forEach((text) => {
+    text.zIndex -= zIndex;
+  });
+  blueprint.blocks?.forEach((block) => {
+    block.zIndex -= zIndex;
+  });
+  blueprint.lines?.forEach((line) => {
+    line.zIndex -= zIndex;
+  });
+  blueprint.qrcodes?.forEach((qrcode) => {
+    qrcode.zIndex -= zIndex;
+  });
+  blueprint.images?.forEach((image) => {
+    image.zIndex -= zIndex;
+  });
+
+  console.log(blueprint);
+
   return JSON.stringify(blueprint, null, "\t");
 }
 
-function parseTextNode(node: Readonly<TextNode>): TextComponent | null {
+function parseTextNode(
+  node: Readonly<TextNode>,
+  originCoord: Coord,
+  zIndex: number
+): TextComponent | null {
   if (!node.visible) {
     return null;
   }
@@ -51,8 +111,8 @@ function parseTextNode(node: Readonly<TextNode>): TextComponent | null {
   }
 
   let text: TextComponent = {
-    x: node.x,
-    y: node.y,
+    x: node.x - originCoord.x,
+    y: node.y - originCoord.y,
     text: node.characters,
     width: node.width,
     font: "",
@@ -61,29 +121,35 @@ function parseTextNode(node: Readonly<TextNode>): TextComponent | null {
     lineSpacing: 0,
     color: color,
     textAlign: node.textAlignHorizontal,
+    zIndex: zIndex,
   };
 
   return text;
 }
 
 function parseRectangleNode(
-  node: Readonly<RectangleNode>
+  node: Readonly<RectangleNode>,
+  originCoord: Coord,
+  zIndex: number
 ): BlockComponent | null {
   if (!node.visible) {
     return null;
   }
 
   let block: BlockComponent = {
-    x: node.x,
-    y: node.y,
+    x: node.x - originCoord.x,
+    y: node.y - originCoord.y,
     width: node.width,
     height: node.height,
+    zIndex: zIndex,
   };
 
   // 角半径
   if (node.cornerRadius !== figma.mixed) {
     // FIXME: 可能为小数
-    block.borderRadius = node.cornerRadius;
+    if (node.cornerRadius > 0) {
+      block.borderRadius = node.cornerRadius;
+    }
   } else {
     block.borderTopLeftRadius = node.topLeftRadius;
     block.borderTopRightRadius = node.topRightRadius;
@@ -131,7 +197,11 @@ function parseRectangleNode(
   return block;
 }
 
-function parseLineNode(node: Readonly<LineNode>): LineComponent | null {
+function parseLineNode(
+  node: Readonly<LineNode>,
+  originCoord: Coord,
+  zIndex: number
+): LineComponent | null {
   if (!node.visible) {
     return null;
   }
@@ -149,12 +219,13 @@ function parseLineNode(node: Readonly<LineNode>): LineComponent | null {
   }
 
   let line: LineComponent = {
-    startX: Math.round(node.x),
-    startY: Math.round(node.y),
-    endX: Math.round(node.x + node.width),
-    endY: Math.round(node.y + node.height),
+    startX: Math.round(node.x) - originCoord.x,
+    startY: Math.round(node.y) - originCoord.y,
+    endX: Math.round(node.x + node.width) - originCoord.x,
+    endY: Math.round(node.y + node.height) - originCoord.y,
     width: 0,
     color: color,
+    zIndex: zIndex,
   };
 
   if (node.strokeWeight !== figma.mixed) {
