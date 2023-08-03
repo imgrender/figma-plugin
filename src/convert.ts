@@ -12,11 +12,19 @@ type Coord = {
 };
 
 export function convert(node: Readonly<SceneNode>): string {
-  const originCoord: Coord = { x: node.x, y: node.y };
+  console.log(node);
+  if (!node.visible) {
+    return "";
+  }
+
+  const originCoord: Coord = {
+    x: Math.round(node.absoluteRenderBounds!.x), // 应该使用渲染边框
+    y: Math.round(node.absoluteRenderBounds!.y),
+  };
 
   const blueprint: Blueprint = {
-    height: node.height,
-    width: node.width,
+    width: Math.round(node.absoluteRenderBounds!.width),
+    height: Math.round(node.absoluteRenderBounds!.height),
     backgroundColor: "#ffffff",
   };
 
@@ -110,11 +118,13 @@ function parseTextNode(
     fontSize = node.fontSize;
   }
 
+  const renderBounds = node.absoluteRenderBounds;
+
   let text: TextComponent = {
-    x: node.x - originCoord.x,
-    y: node.y - originCoord.y,
+    x: Math.abs(Math.round(renderBounds!.x) - originCoord.x),
+    y: Math.abs(Math.round(renderBounds!.y) - originCoord.y),
     text: node.characters,
-    width: node.width,
+    width: Math.abs(Math.round(renderBounds!.width)),
     font: "",
     fontSize: fontSize,
     lineHeight: 0,
@@ -135,26 +145,35 @@ function parseRectangleNode(
   if (!node.visible) {
     return null;
   }
+  console.log(node);
+  const renderBounds = node.absoluteRenderBounds;
 
   let block: BlockComponent = {
-    x: node.x - originCoord.x,
-    y: node.y - originCoord.y,
-    width: node.width,
-    height: node.height,
+    x: Math.abs(Math.round(renderBounds!.x) - originCoord.x),
+    y: Math.abs(Math.round(renderBounds!.y) - originCoord.y),
+    width: Math.round(renderBounds!.width),
+    height: Math.round(renderBounds!.height),
     zIndex: zIndex,
   };
 
   // 角半径
   if (node.cornerRadius !== figma.mixed) {
-    // FIXME: 可能为小数
     if (node.cornerRadius > 0) {
-      block.borderRadius = node.cornerRadius;
+      block.borderRadius = Math.round(node.cornerRadius);
     }
   } else {
-    block.borderTopLeftRadius = node.topLeftRadius;
-    block.borderTopRightRadius = node.topRightRadius;
-    block.borderBottomLeftRadius = node.bottomLeftRadius;
-    block.borderBottomRightRadius = node.bottomRightRadius;
+    if (node.topLeftRadius > 0) {
+      block.borderTopLeftRadius = Math.round(node.topLeftRadius);
+    }
+    if (node.topRightRadius > 0) {
+      block.borderTopRightRadius = Math.round(node.topRightRadius);
+    }
+    if (node.bottomLeftRadius > 0) {
+      block.borderBottomLeftRadius = Math.round(node.bottomLeftRadius);
+    }
+    if (node.bottomRightRadius > 0) {
+      block.borderBottomRightRadius = Math.round(node.bottomRightRadius);
+    }
   }
 
   // 边框
@@ -171,12 +190,22 @@ function parseRectangleNode(
     }
 
     if (node.strokeWeight !== figma.mixed) {
-      block.borderWidth = node.strokeWeight;
+      if (node.strokeWeight > 0) {
+        block.borderWidth = Math.round(node.strokeWeight);
+      }
     } else {
-      block.borderTopWidth = node.strokeTopWeight;
-      block.borderRightWidth = node.strokeRightWeight;
-      block.borderBottomWidth = node.strokeBottomWeight;
-      block.borderLeftWidth = node.strokeLeftWeight;
+      if (node.strokeTopWeight > 0) {
+        block.borderTopWidth = Math.round(node.strokeTopWeight);
+      }
+      if (node.strokeRightWeight > 0) {
+        block.borderRightWidth = Math.round(node.strokeRightWeight);
+      }
+      if (node.strokeBottomWeight > 0) {
+        block.borderBottomWidth = Math.round(node.strokeBottomWeight);
+      }
+      if (node.strokeLeftWeight > 0) {
+        block.borderLeftWidth = Math.round(node.strokeLeftWeight);
+      }
     }
   }
 
@@ -218,18 +247,25 @@ function parseLineNode(
     return null;
   }
 
+  console.log(node);
+  const renderBounds = node.absoluteRenderBounds;
+
   let line: LineComponent = {
-    startX: Math.round(node.x) - originCoord.x,
-    startY: Math.round(node.y) - originCoord.y,
-    endX: Math.round(node.x + node.width) - originCoord.x,
-    endY: Math.round(node.y + node.height) - originCoord.y,
+    startX: Math.abs(Math.round(renderBounds!.x) - originCoord.x),
+    startY: Math.abs(Math.round(renderBounds!.y) - originCoord.y),
+    endX: Math.abs(
+      Math.round(renderBounds!.x + renderBounds!.width) - originCoord.x
+    ),
+    endY: Math.abs(
+      Math.round(renderBounds!.y + renderBounds!.height) - originCoord.y
+    ),
     width: 0,
     color: color,
     zIndex: zIndex,
   };
 
   if (node.strokeWeight !== figma.mixed) {
-    line.width = node.strokeWeight;
+    line.width = Math.round(node.strokeWeight);
   }
 
   return line;
@@ -237,7 +273,11 @@ function parseLineNode(
 
 function parsePaint(node: Readonly<Paint>): null | string {
   if (node.type === "SOLID") {
-    return convertRgbColorToHexColor(node.color);
+    let color = convertRgbColorToHexColor(node.color);
+    if (color === null) {
+      return null;
+    }
+    return "#" + color;
   }
   return null;
 }
