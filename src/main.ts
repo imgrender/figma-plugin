@@ -43,7 +43,18 @@ export default function () {
         3000
       );
     } else if (selection.length === 1) {
-      const data = convert(selection[0]);
+      const node = selection[0];
+      let data = "";
+      if (node.type === "GROUP") {
+        data = convert(node);
+      } else if (node.type === "TEXT") {
+        data = convert(node);
+      } else if (node.type === "RECTANGLE") {
+        data = convert(node);
+      } else if (node.type === "LINE") {
+        data = convert(node);
+      }
+
       emit<SaveToClipboardHandler>("SAVE_TO_CLIPBOARD", data);
       figma.notify("已复制到剪贴板中", {
         timeout: NOTI_TIME_LONG,

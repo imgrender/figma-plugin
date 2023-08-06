@@ -11,7 +11,9 @@ type Coord = {
   y: number;
 };
 
-export function convert(node: Readonly<SceneNode>): string {
+export function convert(
+  node: Readonly<GroupNode | TextNode | LineNode | RectangleNode>
+): string {
   console.log(node);
   if (!node.visible) {
     return "";
@@ -146,13 +148,13 @@ function parseRectangleNode(
     return null;
   }
   console.log(node);
-  const renderBounds = node.absoluteRenderBounds;
+  const boundingBox = node.absoluteBoundingBox;
 
   let block: BlockComponent = {
-    x: Math.abs(Math.round(renderBounds!.x) - originCoord.x),
-    y: Math.abs(Math.round(renderBounds!.y) - originCoord.y),
-    width: Math.round(renderBounds!.width),
-    height: Math.round(renderBounds!.height),
+    x: Math.abs(Math.round(boundingBox!.x) - originCoord.x),
+    y: Math.abs(Math.round(boundingBox!.y) - originCoord.y),
+    width: Math.round(boundingBox!.width),
+    height: Math.round(boundingBox!.height),
     zIndex: zIndex,
   };
 
