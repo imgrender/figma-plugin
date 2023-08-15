@@ -1,14 +1,7 @@
-interface BorderAttributes {
+export interface BorderAttributes {
   borderColor?: string;
   borderWidth?: number;
-  borderTopColor?: string;
-  borderTopWidth?: number;
-  borderBottomColor?: string;
-  borderBottomWidth?: number;
-  borderRightColor?: string;
-  borderRightWidth?: number;
-  borderLeftColor?: string;
-  borderLeftWidth?: number;
+  strokeAlign?: string;
   borderRadius?: number;
   borderTopLeftRadius?: number;
   borderTopRightRadius?: number;
@@ -23,9 +16,9 @@ export interface TextComponent {
   width: number;
   font: string;
   fontSize: number;
-  lineHeight: number;
-  lineSpacing: number;
-  color: string;
+  lineHeight?: number;
+  lineSpacing?: number;
+  color?: string;
   textAlign: string;
   zIndex: number;
 }

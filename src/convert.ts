@@ -4,6 +4,8 @@ import {
   TextComponent,
   LineComponent,
   BlockComponent,
+  BorderAttributes,
+  ImageComponent,
 } from "./models";
 
 type Coord = {
@@ -15,7 +17,7 @@ export function convert(
   node: Readonly<GroupNode | TextNode | LineNode | RectangleNode>
 ): string {
   console.log(node);
-  if (!node.visible) {
+  if (!node.visible || node.absoluteRenderBounds === null) {
     return "";
   }
 
@@ -30,7 +32,7 @@ export function convert(
     backgroundColor: "#ffffff",
   };
 
-  // DFS
+  // DFS（深度优先遍历）
   let stack: Array<Readonly<SceneNode>> = [];
   let zIndex = 0;
   stack.push(node);
@@ -47,13 +49,22 @@ export function convert(
         blueprint.texts?.push(text);
       }
     } else if (item?.type === "RECTANGLE") {
-      let block = parseRectangleNode(item, originCoord, zIndex);
-      console.log(block);
-      if (block !== null) {
-        if (blueprint.blocks === undefined) {
-          blueprint.blocks = [];
+      if (!item.isAsset) {
+        let block = parseRectangleNode(item, originCoord, zIndex);
+        if (block !== null) {
+          if (blueprint.blocks === undefined) {
+            blueprint.blocks = [];
+          }
+          blueprint.blocks.push(block);
         }
-        blueprint.blocks.push(block);
+      } else {
+        let image = parseImageNode(item, originCoord, zIndex);
+        if (image !== null) {
+          if (blueprint.images === undefined) {
+            blueprint.images = [];
+          }
+          blueprint.images.push(image);
+        }
       }
     } else if (item?.type === "LINE") {
       let line = parseLineNode(item, originCoord, zIndex);
@@ -91,7 +102,6 @@ export function convert(
   });
 
   console.log(blueprint);
-
   return JSON.stringify(blueprint, null, "\t");
 }
 
@@ -104,39 +114,63 @@ function parseTextNode(
     return null;
   }
 
-  const paint = node.strokes.find((paint) => {
-    return paint.visible;
-  });
-  if (paint === undefined) {
-    return null;
-  }
-  const color = parsePaint(paint);
-  if (color === null) {
-    return null;
-  }
-
-  let fontSize = 1;
+  let fontSize = 18;
   if (node.fontSize !== figma.mixed) {
     fontSize = node.fontSize;
   }
 
-  const renderBounds = node.absoluteRenderBounds;
+  // FIXME:先只支持 SourceHanSansSC 系列字体，其他字体暂时默认为 SourceHanSansSC-Normal
+  let font = "SourceHanSansSC-Normal";
+  if (node.fontName !== figma.mixed) {
+    if (node.fontName.family === "Source Han Sans SC") {
+      font = "SourceHanSansSC-" + node.fontName.style;
+    }
+  }
 
+  const renderBounds = node.absoluteRenderBounds;
+  let x = Math.abs(Math.round(renderBounds!.x) - originCoord.x);
+  let width = Math.abs(Math.round(renderBounds!.width));
   let text: TextComponent = {
-    x: Math.abs(Math.round(renderBounds!.x) - originCoord.x),
+    x: x + Math.ceil(width / 2),
     y: Math.abs(Math.round(renderBounds!.y) - originCoord.y),
     text: node.characters,
-    width: Math.abs(Math.round(renderBounds!.width)),
-    font: "",
+    width: width,
+    font: font,
     fontSize: fontSize,
-    lineHeight: 0,
-    lineSpacing: 0,
-    color: color,
-    textAlign: node.textAlignHorizontal,
+    textAlign: node.textAlignHorizontal.toLowerCase(),
     zIndex: zIndex,
   };
 
+  // 行高
+  if (node.lineHeight !== figma.mixed && node.lineHeight.unit === "PIXELS") {
+    text.lineHeight = node.lineHeight.value;
+  }
+
+  // 填充
+  if (node.fills !== figma.mixed && node.fills.length > 0) {
+    const paint = node.fills.find((paint) => {
+      return paint.visible;
+    });
+
+    if (paint === undefined) {
+      return null; // 当无填充时，不返回该对象
+    }
+
+    const color = parsePaint(paint);
+    if (color !== null) {
+      text.color = color;
+    }
+  }
+
   return text;
+}
+
+function parseFont(fontName: FontName): string {
+  // FIXME:先只支持 SourceHanSansSC 系列字体，其他字体暂时默认为 SourceHanSansSC-Normal
+  if (fontName.family === "Source Han Sans SC") {
+    return "SourceHanSansSC-" + fontName.style;
+  }
+  return "SourceHanSansSC-Normal";
 }
 
 function parseRectangleNode(
@@ -147,69 +181,17 @@ function parseRectangleNode(
   if (!node.visible) {
     return null;
   }
-  console.log(node);
-  const boundingBox = node.absoluteBoundingBox;
 
+  const border = parseBorderAttributesFromNode(node);
+  const boundingBox = node.absoluteBoundingBox;
   let block: BlockComponent = {
     x: Math.abs(Math.round(boundingBox!.x) - originCoord.x),
     y: Math.abs(Math.round(boundingBox!.y) - originCoord.y),
     width: Math.round(boundingBox!.width),
     height: Math.round(boundingBox!.height),
     zIndex: zIndex,
+    ...border,
   };
-
-  // 角半径
-  if (node.cornerRadius !== figma.mixed) {
-    if (node.cornerRadius > 0) {
-      block.borderRadius = Math.round(node.cornerRadius);
-    }
-  } else {
-    if (node.topLeftRadius > 0) {
-      block.borderTopLeftRadius = Math.round(node.topLeftRadius);
-    }
-    if (node.topRightRadius > 0) {
-      block.borderTopRightRadius = Math.round(node.topRightRadius);
-    }
-    if (node.bottomLeftRadius > 0) {
-      block.borderBottomLeftRadius = Math.round(node.bottomLeftRadius);
-    }
-    if (node.bottomRightRadius > 0) {
-      block.borderBottomRightRadius = Math.round(node.bottomRightRadius);
-    }
-  }
-
-  // 边框
-  if (node.strokes.length > 0) {
-    const paint = node.strokes.find((paint) => {
-      return paint.visible;
-    });
-
-    if (paint !== undefined) {
-      const color = parsePaint(paint);
-      if (color !== null) {
-        block.borderColor = color;
-      }
-    }
-
-    if (node.strokeWeight !== figma.mixed) {
-      if (node.strokeWeight > 0) {
-        block.borderWidth = Math.round(node.strokeWeight);
-      }
-    } else {
-      if (node.strokeTopWeight > 0) {
-        block.borderTopWidth = Math.round(node.strokeTopWeight);
-      }
-      if (node.strokeRightWeight > 0) {
-        block.borderRightWidth = Math.round(node.strokeRightWeight);
-      }
-      if (node.strokeBottomWeight > 0) {
-        block.borderBottomWidth = Math.round(node.strokeBottomWeight);
-      }
-      if (node.strokeLeftWeight > 0) {
-        block.borderLeftWidth = Math.round(node.strokeLeftWeight);
-      }
-    }
-  }
 
   // 背景
   if (node.fills !== figma.mixed && node.fills.length > 0) {
@@ -226,6 +208,93 @@ function parseRectangleNode(
   }
 
   return block;
+}
+
+function parseImageNode(
+  node: Readonly<RectangleNode>,
+  originCoord: Coord,
+  zIndex: number
+): ImageComponent | null {
+  if (!node.visible) {
+    return null;
+  }
+
+  const border = parseBorderAttributesFromNode(node);
+  const boundingBox = node.absoluteBoundingBox;
+  let image: ImageComponent = {
+    x: Math.abs(Math.round(boundingBox!.x) - originCoord.x),
+    y: Math.abs(Math.round(boundingBox!.y) - originCoord.y),
+    width: Math.round(boundingBox!.width),
+    height: Math.round(boundingBox!.height),
+    url: "Please replace with accessible image url",
+    zIndex: zIndex,
+    ...border,
+  };
+
+  // 背景
+  if (node.fills !== figma.mixed && node.fills.length > 0) {
+    const paint = node.fills.find((paint) => {
+      return paint.visible;
+    });
+
+    if (paint === undefined || paint.type !== "IMAGE") {
+      return null; // 不可见或者类型不是图片
+    }
+  }
+
+  return image;
+}
+
+function parseBorderAttributesFromNode(
+  node: Readonly<RectangleNode>
+): BorderAttributes | {} {
+  if (!node.visible) {
+    return {};
+  }
+
+  let border: BorderAttributes = {};
+  // 角半径
+  if (node.cornerRadius !== figma.mixed) {
+    if (node.cornerRadius > 0) {
+      border.borderRadius = Math.round(node.cornerRadius);
+    }
+  } else {
+    if (node.topLeftRadius > 0) {
+      border.borderTopLeftRadius = Math.round(node.topLeftRadius);
+    }
+    if (node.topRightRadius > 0) {
+      border.borderTopRightRadius = Math.round(node.topRightRadius);
+    }
+    if (node.bottomLeftRadius > 0) {
+      border.borderBottomLeftRadius = Math.round(node.bottomLeftRadius);
+    }
+    if (node.bottomRightRadius > 0) {
+      border.borderBottomRightRadius = Math.round(node.bottomRightRadius);
+    }
+  }
+
+  // 边框
+  if (node.strokes.length > 0) {
+    const paint = node.strokes.find((paint) => {
+      return paint.visible;
+    });
+
+    if (paint !== undefined) {
+      const color = parsePaint(paint);
+      if (color !== null) {
+        border.borderColor = color;
+      }
+    }
+
+    if (node.strokeWeight !== figma.mixed) {
+      if (node.strokeWeight > 0) {
+        border.borderWidth = Math.round(node.strokeWeight);
+        border.strokeAlign = node.strokeAlign;
+      }
+    }
+  }
+
+  return border;
 }
 
 function parseLineNode(
@@ -249,7 +318,6 @@ function parseLineNode(
     return null;
   }
 
-  console.log(node);
   const renderBounds = node.absoluteRenderBounds;
 
   let line: LineComponent = {
