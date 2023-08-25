@@ -18,8 +18,8 @@
     "editorType": [
       "figma"
     ],
-    "id": "imgrender-output",
-    "name": "imgrender-output",
+    "id": "1273461051550664878",
+    "name": "imgrender - Figma-like server-side rendering service",
     "main": "src/main.ts",
     "ui": "src/ui.tsx"
   }

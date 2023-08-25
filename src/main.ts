@@ -1,35 +1,11 @@
 import { emit, on, once, showUI } from "@create-figma-plugin/utilities";
 import { convert } from "./convert";
 
-import {
-  CloseHandler,
-  CreateRectanglesHandler,
-  OutputHandler,
-  SaveToClipboardHandler,
-} from "./types";
+import { CloseHandler, OutputHandler, SaveToClipboardHandler } from "./types";
 
 const NOTI_TIME_LONG = 1500;
 
 export default function () {
-  once<CreateRectanglesHandler>("CREATE_RECTANGLES", function (count: number) {
-    const nodes: Array<SceneNode> = [];
-    for (let i = 0; i < count; i++) {
-      const rect = figma.createRectangle();
-      rect.x = i * 150;
-      rect.fills = [
-        {
-          color: { b: 0, g: 0.5, r: 1 },
-          type: "SOLID",
-        },
-      ];
-      figma.currentPage.appendChild(rect);
-      nodes.push(rect);
-    }
-    figma.currentPage.selection = nodes;
-    figma.viewport.scrollAndZoomIntoView(nodes);
-    figma.closePlugin();
-  });
-
   once<CloseHandler>("CLOSE", function () {
     figma.closePlugin();
   });
@@ -54,12 +30,18 @@ export default function () {
       } else if (node.type === "LINE") {
         data = convert(node);
       }
-
-      emit<SaveToClipboardHandler>("SAVE_TO_CLIPBOARD", data);
-      figma.notify("已复制到剪贴板中", {
-        timeout: NOTI_TIME_LONG,
-        error: false,
-      });
+      if (data === "") {
+        figma.notify("Nothing to export.", {
+          timeout: NOTI_TIME_LONG,
+          error: true,
+        });
+      } else {
+        emit<SaveToClipboardHandler>("SAVE_TO_CLIPBOARD", data);
+        figma.notify("Successful! Copied to clipboard.", {
+          timeout: NOTI_TIME_LONG,
+          error: false,
+        });
+      }
     } else {
       showError(
         "Nothing selected. Please select a layer to output.",

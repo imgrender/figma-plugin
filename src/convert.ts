@@ -131,7 +131,7 @@ function parseTextNode(
   let x = Math.abs(Math.round(renderBounds!.x) - originCoord.x);
   let width = Math.abs(Math.round(renderBounds!.width));
   let text: TextComponent = {
-    x: x + Math.ceil(width / 2),
+    x: x,
     y: Math.abs(Math.round(renderBounds!.y) - originCoord.y),
     text: node.characters,
     width: width,
@@ -140,6 +140,11 @@ function parseTextNode(
     textAlign: node.textAlignHorizontal.toLowerCase(),
     zIndex: zIndex,
   };
+  if (node.textAlignHorizontal === "CENTER") {
+    text.x += Math.ceil(width / 2);
+  } else if (node.textAlignHorizontal === "RIGHT") {
+    text.x += width;
+  }
 
   // 行高
   if (node.lineHeight !== figma.mixed && node.lineHeight.unit === "PIXELS") {
